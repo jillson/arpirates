@@ -12,7 +12,9 @@
         <a-scene embedded arjs='sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;'>
 
         <a-assets>
-            <a-asset-item id="animated-asset" src="https://raw.githubusercontent.com/nicolocarpignoli/nicolocarpignoli.github.io/master/ar-playground/models/CesiumMan.gltf"></a-asset-item>
+             <img id="lighthouse" src="lighthouse.jpg"> <!-- By James Valentine & Sons - This image is available from the McCord Stewart Museum under the access number MP-0000.618.5This tag does not indicate the copyright status of the attached work. A normal copyright tag is still required. See Commons:Licensing for more information., Public Domain, https://commons.wikimedia.org/w/index.php?curid=10280708-->
+
+
         </a-assets>
 
         <a-marker type='barcode' value='1'>
@@ -20,7 +22,7 @@
         </a-marker>
         
         <a-marker type='barcode' value='0'>
-        <a-ocean color="aqua" depth="100" width="100"></a-ocean>
+            <a-image src="#lighthouse"></a-image>
         </a-marker>
 
         <a-marker type='barcode' value='2'>
@@ -33,14 +35,11 @@
 
 
         <a-marker type='barcode' value='28'>
-            <a-box position='0 0.5 0' color="green"></a-box>
+            <a-box position='0 0.5 0' color="yellow"></a-box>
         </a-marker>
 
-        <a-marker id="animated-marker" type='barcode' value='9'>
-            <a-entity
-                gltf-model="#animated-asset"
-                scale="2">
-            </a-entity>
+        <a-marker type='barcode' value='9'>
+            <a-sphere radius="4" color="#ff00ff"></a-sphere>
         </a-marker>
 
         <!-- use this <a-entity camera> to support multiple-markers, otherwise use <a-marker-camera> instead of </a-marker> -->
