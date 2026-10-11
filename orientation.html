@@ -52,8 +52,6 @@
   const params = new URLSearchParams(location.search);
   let server = params.get('server');
   if (server) {
-    if (!/^https?:\/\//i.test(server)) server = 'https://' + server;
-    server = server.replace(/\/+$/, '');
     $('server').textContent = server;
   }
 
