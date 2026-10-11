@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Device Orientation</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font: 16px/1.4 -apple-system, system-ui, sans-serif; margin: 0; padding: 16px; max-width: 480px; }
+  h1 { font-size: 1.3rem; margin: 0 0 12px; }
+  button { font: inherit; padding: 10px 14px; margin: 4px 4px 4px 0; border-radius: 8px; border: 1px solid #888; background: #0a84ff; color: #fff; }
+  button:disabled { opacity: .4; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-variant-numeric: tabular-nums; }
+  td { padding: 6px 4px; border-bottom: 1px solid #8884; }
+  td:last-child { text-align: right; font-family: ui-monospace, Menlo, monospace; }
+  pre { background: #8882; padding: 8px; border-radius: 8px; white-space: pre-wrap; word-break: break-word; min-height: 3em; font-size: 13px; }
+  #status { color: #888; font-size: 14px; }
+  #box { width: 100px; height: 100px; margin: 16px auto; background: #0a84ff; border-radius: 12px; }
+</style>
+</head>
+<body>
+<h1>Device Orientation</h1>
+
+<button id="start">Enable sensors</button>
+<div id="status">Not started.</div>
+
+<div id="box"></div>
+
+<table>
+  <tr><td>alpha (z, 0–360°)</td><td id="alpha">–</td></tr>
+  <tr><td>beta (x, -180–180°)</td><td id="beta">–</td></tr>
+  <tr><td>gamma (y, -90–90°)</td><td id="gamma">–</td></tr>
+  <tr><td>compass heading (iOS)</td><td id="heading">–</td></tr>
+  <tr><td>absolute</td><td id="absolute">–</td></tr>
+</table>
+
+<div>
+  <button id="send" disabled>POST reading</button>
+  <button id="fetch" disabled>GET from server</button>
+</div>
+<div id="status2" style="color:#888;font-size:14px">
+  Server: <span id="server">(none — add ?server=api.example.com)</span>
+</div>
+<pre id="log"></pre>
+
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const log = msg => { $('log').textContent = msg; };
+
+  // Server hostname from ?server=host[:port]. Accepts a full URL too.
+  const params = new URLSearchParams(location.search);
+  let server = params.get('server');
+  if (server) {
+    if (!/^https?:\/\//i.test(server)) server = 'https://' + server;
+    server = server.replace(/\/+$/, '');
+    $('server').textContent = server;
+  }
+
+  let last = null;
+
+  function onOrientation(e) {
+    last = {
+      alpha: e.alpha, beta: e.beta, gamma: e.gamma,
+      heading: e.webkitCompassHeading ?? null,
+      absolute: e.absolute ?? null,
+      t: Date.now()
+    };
+    const f = v => (v == null ? '–' : v.toFixed(1) + '°');
+    $('alpha').textContent = f(e.alpha);
+    $('beta').textContent = f(e.beta);
+    $('gamma').textContent = f(e.gamma);
+    $('heading').textContent = f(e.webkitCompassHeading);
+    $('absolute').textContent = String(e.absolute);
+    $('box').style.transform =
+      `rotateX(${e.beta || 0}deg) rotateY(${e.gamma || 0}deg) rotateZ(${-(e.alpha || 0)}deg)`;
+  }
+
+  async function start() {
+    if (!window.isSecureContext) {
+      $('status').textContent = 'HTTPS is required for motion/orientation sensors.';
+      return;
+    }
+    if (typeof DeviceOrientationEvent === 'undefined') {
+      $('status').textContent = 'DeviceOrientationEvent not supported here.';
+      return;
+    }
+    try {
+      // iOS 13+ requires a permission request from a user gesture.
+      if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+        const state = await DeviceOrientationEvent.requestPermission();
+        if (state !== 'granted') {
+          $('status').textContent = 'Permission ' + state + '. Reset via Settings > Safari > Advanced > Website Data, or fully close Safari and retry.';
+          return;
+        }
+      }
+      window.addEventListener('deviceorientation', onOrientation);
+      $('status').textContent = 'Listening… (move your phone)';
+      $('start').disabled = true;
+      if (server) { $('send').disabled = false; $('fetch').disabled = false; }
+    } catch (err) {
+      $('status').textContent = 'Error: ' + err.message;
+    }
+  }
+
+  async function post() {
+    if (!last) return log('No reading yet.');
+    try {
+      const r = await fetch(server + '/orientation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(last)
+      });
+      log('POST ' + r.status + '\n' + (await r.text()).slice(0, 500));
+    } catch (err) {
+      log('POST failed: ' + err.message + '\n(Check HTTPS and CORS on the server.)');
+    }
+  }
+
+  async function get() {
+    try {
+      const r = await fetch(server + '/orientation');
+      log('GET ' + r.status + '\n' + (await r.text()).slice(0, 500));
+    } catch (err) {
+      log('GET failed: ' + err.message + '\n(Check HTTPS and CORS on the server.)');
+    }
+  }
+
+  $('start').addEventListener('click', start);
+  $('send').addEventListener('click', post);
+  $('fetch').addEventListener('click', get);
+})();
+</script>
+</body>
+</html>
