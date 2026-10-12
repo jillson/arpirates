@@ -4,22 +4,86 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Device Orientation</title>
-<style>
-  :root { color-scheme: light dark; }
-  body { font: 16px/1.4 -apple-system, system-ui, sans-serif; margin: 0; padding: 16px; max-width: 480px; }
-  h1 { font-size: 1.3rem; margin: 0 0 12px; }
-  button { font: inherit; padding: 10px 14px; margin: 4px 4px 4px 0; border-radius: 8px; border: 1px solid #888; background: #0a84ff; color: #fff; }
-  button:disabled { opacity: .4; }
-  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-variant-numeric: tabular-nums; }
-  td { padding: 6px 4px; border-bottom: 1px solid #8884; }
-  td:last-child { text-align: right; font-family: ui-monospace, Menlo, monospace; }
-  pre { background: #8882; padding: 8px; border-radius: 8px; white-space: pre-wrap; word-break: break-word; min-height: 3em; font-size: 13px; }
-  #status { color: #888; font-size: 14px; }
-  #box { width: 100px; height: 100px; margin: 16px auto; background: #0a84ff; border-radius: 12px; }
-</style>
+<link rel="stylesheet" type="text/css" href="style.css">
 </head>
+
 <body>
 <h1>Device Orientation</h1>
+
+
+    <!-- Import Map to fetch Three.js from CDN -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com",
+                "three/addons/": "https://unpkg.com"
+            }
+        }
+    </script>
+</head>
+<body>
+    <div id="info">Initializing scene...</div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        // Note: We use WebGPURenderer from the main build file in modern Three.js
+        import WebGPURenderer from 'https://unpkg.com'; 
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        let camera, scene, renderer, controls, mesh;
+        const infoElement = document.getElementById('info');
+
+        init();
+
+        async function init() {
+            // 1. Setup Scene and Camera
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera.position.z = 4;
+
+            // 2. Initialize WebGPURenderer (Handles fallback automatically)
+            renderer = new WebGPURenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setAnimationLoop(animate);
+            document.body.appendChild(renderer.domElement);
+
+            // Update UI to show which backend was selected
+            // We wait one frame or check backend type after renderer initialization
+            setTimeout(() => {
+                const isWebGPU = renderer.backend && renderer.backend.isWebGPUBackend;
+                infoElement.innerText = isWebGPU 
+                    ? "🚀 Running on WebGPU" 
+                    : "🔄 WebGPU unsupported. Falling back to WebGL 2";
+            }, 100);
+
+            // 3. Add a simple spinning cube and lighting
+            const geometry = new THREE.BoxGeometry();
+            const material = new THREE.MeshNormalMaterial();
+            mesh = new THREE.Mesh(geometry, material);
+            scene.add(mesh);
+
+            // 4. Controls & Window Resize
+            controls = new OrbitControls(camera, renderer.domElement);
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            // Simple animation loop
+            mesh.rotation.x += 0.01;
+            mesh.rotation.y += 0.02;
+            controls.update();
+            renderer.render(scene, camera);
+        }
+    </script>
+
+
+
 
 <button id="start">Enable sensors</button>
 <div id="status">Not started.</div>
@@ -35,13 +99,15 @@
 </table>
 
 <div>
-  <button id="send" disabled>POST reading</button>
   <button id="fetch" disabled>GET from server</button>
 </div>
 <div id="status2" style="color:#888;font-size:14px">
   Server: <span id="server">(none — add ?server=api.example.com)</span>
 </div>
 <pre id="log"></pre>
+
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js"}}</script>
+<script type="module" src="app.js"></script>
 
 <script>
 (function () {
@@ -101,19 +167,6 @@
     }
   }
 
-  async function post() {
-    if (!last) return log('No reading yet.');
-    try {
-      const r = await fetch(server + '/orientation', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(last)
-      });
-      log('POST ' + r.status + '\n' + (await r.text()).slice(0, 500));
-    } catch (err) {
-      log('POST failed: ' + err.message + '\n(Check HTTPS and CORS on the server.)');
-    }
-  }
 
   async function get() {
     try {
@@ -125,7 +178,6 @@
   }
 
   $('start').addEventListener('click', start);
-  $('send').addEventListener('click', post);
   $('fetch').addEventListener('click', get);
 })();
 </script>
